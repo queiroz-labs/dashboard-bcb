@@ -38,14 +38,14 @@ Prioridade no dia a dia: **1 e 2 andam juntos desde a Fase 1** (o projeto é lit
 - Entregável: script ou app Streamlit rodando localmente, 1 gráfico funcional.
 
 **Entregue:**
-- `app.py` (Streamlit): métricas da SELIC (meta anual do Copom — série 432; taxa efetiva mensal — série 4189; efetiva 12 meses por capitalização composta; máxima pós-Plano Real), gráfico de linha Plotly, seletor de período e card de contexto (o que é, quem publica, por que importa).
+- `app.py` (Streamlit): métricas da SELIC (meta anual do Copom — série 432; taxa efetiva mensal — série 4390; taxa efetiva anualizada base 252 — série 4189; efetiva 12 meses por capitalização composta; máxima pós-Plano Real), gráfico de linha Plotly, seletor de período e card de contexto (o que é, quem publica, por que importa).
 - `src/bcb.py`: `fetch_sgs()` — request HTTP + parse JSON → DataFrame com `DatetimeIndex`; aceita `dataInicial`/`dataFinal` (séries diárias têm janela máx. de 10 anos na API).
 - `src/storage.py`: cache local em SQLite (`data/bcb.db`) com fallback quando a API está indisponível.
 - `src/metrics.py`: `acumulada_12m()` — capitalização composta em janela móvel.
 - `tests/test_bcb.py`: 4 testes passing (parse, fetch 4189, fetch 432 com janela, capitalização composta).
-- **Correção conceitual (revisão):** o Copom define a meta SELIC **ao ano** (série 432); a série 4189 chega da API **anualizada (% a.a.)** — o app converte pra % a.m. com `(1+i a.a.)^(1/12)−1` (`src/metrics.py: aa_para_am`). Acumulada em 12 meses = `(1+r1)×…×(1+r12)−1`, não soma. Equivalência: `(1+i a.a.) = (1+i a.m.)^12`.
+- **Correção conceitual (revisão):** o Copom define a meta SELIC **ao ano** (série 432); o SGS oferece a taxa efetiva mensal diretamente na série 4390 (% a.m.) e a série 4189 anualizada em base 252 (% a.a.). O app usa cada série na unidade nativa, sem conversão artificial entre elas. Acumulada em 12 meses = `(1+r1)×…×(1+r12)−1`, não soma. Para taxas efetivas equivalentes, `(1+i a.a.) = (1+i a.m.)^12`.
 
-## Fase 2 — Expansão de indicadores + camada de aprendizado 🔄 (em andamento desde ago/2026)
+## Fase 2 — Expansão de indicadores + camada de aprendizado ✅ (concluída em ago/2026)
 
 **Meta:** cobrir um conjunto de ~10-15 séries essenciais, organizadas por bloco temático do edital.
 
@@ -72,7 +72,11 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 - Explorador atualizado para aceitar SGS e Focus, mantendo os cards de contexto e o tratamento de frequências.
 - Testes: 22 passing, incluindo parsers Focus e smoke tests das quatro séries novas.
 
-**Parte C pendente — Mercado de Capitais:** CDI diário (12) e IGP-M mensal (189). Taxas futuras ficam para quando houver fonte pública estável definida.
+**Parte C entregue (ago/2026) — Mercado de Capitais:**
+- CDI diário (SGS 12), explicitamente exibido em `% a.d.` e diário por padrão.
+- IGP-M mensal (SGS 189), exibido em `% a.m.` com opção de acumulado composto em 12 meses.
+- Catálogo final com 12 séries nos quatro blocos e 25 testes passing.
+- Taxas futuras permanecem pendentes até existir uma fonte pública estável definida.
 
 ## Fase 3 — Estatística/Econometria aplicada
 

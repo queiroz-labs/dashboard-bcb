@@ -2,7 +2,12 @@ import pandas as pd
 import pytest
 
 from src.bcb import _parse_payload, fetch_sgs
-from src.metrics import aa_para_am, acumulada_12m, ultima_do_mes
+from src.metrics import (
+    aa_para_am,
+    acumulada_12m,
+    formatar_periodo,
+    ultima_do_mes,
+)
 
 PAYLOAD = [
     {"data": "01/08/1986", "valor": "35,55"},
@@ -21,11 +26,19 @@ def test_parse_payload():
 
 
 def test_fetch_sgs_selic():
-    df = fetch_sgs(4189, name="selic")
+    df = fetch_sgs(4390, name="selic_mensal")
     assert not df.empty
-    assert list(df.columns) == ["selic"]
+    assert list(df.columns) == ["selic_mensal"]
     assert df.index.min().year == 1986
-    assert isinstance(df["selic"].iloc[-1], float)
+    assert isinstance(df["selic_mensal"].iloc[-1], float)
+
+
+def test_fetch_sgs_selic_anualizada():
+    df = fetch_sgs(4189, name="selic_anual")
+    assert not df.empty
+    assert list(df.columns) == ["selic_anual"]
+    assert df.index.min().year == 1986
+    assert isinstance(df["selic_anual"].iloc[-1], float)
 
 
 def test_fetch_sgs_meta_com_janela():
@@ -84,3 +97,10 @@ def test_ultima_do_mes_pega_valor_vigente_no_fim():
         pd.Timestamp("2025-03-01"),
     ]
     assert out["meta"].tolist() == [10.75, 11.25, 11.25]
+
+
+def test_formatar_periodo():
+    assert formatar_periodo(pd.Timestamp("2026-08-14"), "D") == "14/08/2026"
+    assert formatar_periodo(pd.Timestamp("2026-07-01"), "M") == "Jul/2026"
+    assert formatar_periodo(pd.Timestamp("2026-07-01"), "T") == "3º trimestre de 2026"
+    assert formatar_periodo(pd.Timestamp("2026-01-01"), "A") == "2026"

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 BLOCO_ABERTA = "Macroeconomia Aberta"
 BLOCO_ATIVIDADE = "Atividade e PIB"
 BLOCO_POLITICA = "Política Monetária"
+BLOCO_MERCADO = "Mercado de Capitais"
 
 
 @dataclass(frozen=True)
@@ -223,6 +224,50 @@ do Copom, ao longo das datas de divulgação da pesquisa Focus.
 - **Por que importa:** resume a trajetória esperada dos juros e ajuda a interpretar a curva de juros.
 - **Conceitos relacionados:** juros nominais e reais, prêmio de risco, forward guidance e curva a termo.
 - **Onde cai no edital:** política monetária e mercado de renda fixa.
+        """,
+    ),
+    Serie(
+        slug="cdi",
+        nome="CDI diário",
+        bloco=BLOCO_MERCADO,
+        fonte="sgs",
+        codigo_sgs=12,
+        frequencia="D",
+        unidade="% a.d.",
+        acumulavel=False,
+        contexto="""
+O **CDI** é a taxa de referência das operações de empréstimo de um dia entre instituições financeiras.
+A série mostra a taxa diária, em percentual ao dia.
+
+- **Quem publica:** Banco Central; série 12 da API SGS; frequência diária, unidade % a.d.
+- **Por que importa:** serve como referência para aplicações de renda fixa e costuma acompanhar de perto
+a SELIC efetiva.
+- **Conceitos relacionados:** mercado interfinanceiro, operações compromissadas, taxa over e liquidez.
+- **Onde cai no edital:** mercado monetário, formação da taxa de juros e mercado de capitais.
+
+> **Atenção à unidade:** o valor exibido é diário (% a.d.), não anualizado (% a.a.) nem mensal (% a.m.).
+        """,
+    ),
+    Serie(
+        slug="igpm",
+        nome="IGP-M mensal",
+        bloco=BLOCO_MERCADO,
+        fonte="sgs",
+        codigo_sgs=189,
+        frequencia="M",
+        unidade="% a.m.",
+        acumulavel=True,
+        contexto="""
+O **IGP-M** (Índice Geral de Preços — Mercado) mede a variação de preços no atacado, no consumidor
+
+- **Quem publica:** Fundação Getulio Vargas; série 189 da API SGS; variação mensal em % a.m.
+- **Por que importa:** é usado como indexador de contratos e ajuda a acompanhar pressões de preços
+que podem diferir da cesta do IPCA.
+- **Conceitos relacionados:** inflação ao produtor, indexação, inércia inflacionária e composição de índices.
+- **Onde cai no edital:** índices de preços, inflação e contratos financeiros.
+
+> **Atenção à unidade:** o valor bruto é mensal (% a.m.); o toggle de acumulado usa capitalização
+composta dos últimos 12 meses.
         """,
     ),
 ]

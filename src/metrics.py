@@ -20,3 +20,14 @@ def aa_para_am(serie: pd.Series) -> pd.Series:
 
 def ultima_do_mes(df: pd.DataFrame) -> pd.DataFrame:
     return df.resample("MS").last()
+
+
+def formatar_periodo(data: pd.Timestamp, frequencia: str) -> str:
+    if frequencia == "D":
+        return data.strftime("%d/%m/%Y")
+    if frequencia == "M":
+        return data.strftime("%b/%Y")
+    if frequencia == "T":
+        trimestre = (data.month - 1) // 3 + 1
+        return f"{trimestre}º trimestre de {data.year}"
+    return data.strftime("%Y")

@@ -1,6 +1,12 @@
 import pytest
 
-from src.catalogo import BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA, CATALOGO
+from src.catalogo import (
+    BLOCO_ABERTA,
+    BLOCO_ATIVIDADE,
+    BLOCO_MERCADO,
+    BLOCO_POLITICA,
+    CATALOGO,
+)
 
 
 def test_catalogo_integridade():
@@ -23,8 +29,19 @@ def test_catalogo_integridade():
 
 def test_catalogo_blocos_esperados():
     blocos = {s.bloco for s in CATALOGO}
-    assert blocos == {BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA}
+    assert blocos == {
+        BLOCO_ABERTA,
+        BLOCO_ATIVIDADE,
+        BLOCO_POLITICA,
+        BLOCO_MERCADO,
+    }
     assert all(
-        s.bloco in (BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA)
+        s.bloco in (BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA, BLOCO_MERCADO)
         for s in CATALOGO
     )
+
+
+def test_unidades_cdi_e_igpm():
+    por_slug = {s.slug: s for s in CATALOGO}
+    assert por_slug["cdi"].unidade == "% a.d."
+    assert por_slug["igpm"].unidade == "% a.m."
