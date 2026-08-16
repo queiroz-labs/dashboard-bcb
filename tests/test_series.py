@@ -7,6 +7,8 @@ from src.focus import fetch_focus
 
 @pytest.mark.parametrize("serie", CATALOGO, ids=lambda s: s.slug)
 def test_smoke_serie(serie):
+    if serie.fonte == "externo":
+        pytest.skip("fonte externa não coberta no smoke test")
     if serie.fonte == "sgs":
         kwargs = {}
         if serie.frequencia == "D":

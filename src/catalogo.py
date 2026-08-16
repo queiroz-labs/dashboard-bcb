@@ -4,6 +4,7 @@ BLOCO_ABERTA = "Macroeconomia Aberta"
 BLOCO_ATIVIDADE = "Atividade e PIB"
 BLOCO_POLITICA = "Política Monetária"
 BLOCO_MERCADO = "Mercado de Capitais"
+BLOCO_EXTERNOS = "Externos"
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,8 @@ class Serie:
     agregado: str | None = None
     variavel: str | None = None
     focus_tipo: str | None = None
+    ticker: str | None = None
+    tipo_derivada: str | None = None
     acumulavel: bool = False
 
 
@@ -268,6 +271,101 @@ que podem diferir da cesta do IPCA.
 
 > **Atenção à unidade:** o valor bruto é mensal (% a.m.); o toggle de acumulado usa capitalização
 composta dos últimos 12 meses.
+        """,
+    ),
+    Serie(
+        slug="ibovespa",
+        nome="Ibovespa (^BVSP)",
+        bloco=BLOCO_EXTERNOS,
+        fonte="externo",
+        ticker="^BVSP",
+        frequencia="D",
+        unidade="pontos",
+        acumulavel=False,
+        contexto="""
+O **Ibovespa** é o principal índice da B3, composto pelas ações mais negociadas do Brasil.
+
+- **Fonte:** yfinance (ticker ^BVSP) — fonte de protótipo, sem SLA; diária, em pontos.
+- **Por que importa:** é o termômetro do mercado acionário brasileiro; oscila com fluxo de capital
+estrangeiro, commodities e apetite a risco global.
+- **Conceitos relacionados:** risco país, carry trade, prêmio de risco de ações.
+- **Onde cai no edital:** mercado de capitais e macroeconomia aberta.
+        """,
+    ),
+    Serie(
+        slug="nasdaq",
+        nome="Nasdaq Composite (^IXIC)",
+        bloco=BLOCO_EXTERNOS,
+        fonte="externo",
+        ticker="^IXIC",
+        frequencia="D",
+        unidade="pontos",
+        acumulavel=False,
+        contexto="""
+O **Nasdaq Composite** reúne as ações da bolsa Nasdaq, com forte peso de tecnologia.
+
+- **Fonte:** yfinance (ticker ^IXIC) — fonte de protótipo, sem SLA; diária, em pontos.
+- **Por que importa:** é o proxy clássico de apetite a risco global; quedas fortes no Nasdaq
+costumam contaminar emergentes e o câmbio brasileiro.
+- **Conceitos relacionados:** apetite a risco, contágio e fluxo de capitais.
+- **Onde cai no edital:** macroeconomia aberta — transmissão externa.
+        """,
+    ),
+    Serie(
+        slug="sp500",
+        nome="S&P 500 (^GSPC)",
+        bloco=BLOCO_EXTERNOS,
+        fonte="externo",
+        ticker="^GSPC",
+        frequencia="D",
+        unidade="pontos",
+        acumulavel=False,
+        contexto="""
+O **S&P 500** é o índice de referência do mercado acionário americano, com as 500 maiores empresas.
+
+- **Fonte:** yfinance (ticker ^GSPC) — fonte de protótipo, sem SLA; diária, em pontos.
+- **Por que importa:** é a principal referência global de renda variável; orienta alocação entre
+mercados e serve de base de comparação para o risco brasileiro.
+- **Conceitos relacionados:** prêmio de risco, diversificação internacional, beta de mercados emergentes.
+- **Onde cai no edital:** mercado de capitais e macroeconomia aberta.
+        """,
+    ),
+    Serie(
+        slug="usd_jpy",
+        nome="USD/JPY (Yen)",
+        bloco=BLOCO_EXTERNOS,
+        fonte="externo",
+        ticker="JPY=X",
+        frequencia="D",
+        unidade="JPY/USD",
+        acumulavel=False,
+        contexto="""
+O **USD/JPY** mede quantos ienes compram 1 dólar.
+
+- **Fonte:** yfinance (ticker JPY=X) — fonte de protótipo, sem SLA; diária, em JPY/USD.
+- **Por que importa:** o iene é a moeda clássica de financiamento do carry trade. Quando o apetite
+a risco sobe, investidores tomam ienes emprestados e compram moedas de juro alto (como o real);
+quando o risco aperta, o "unwind" valoriza o iene e pressiona emergentes.
+- **Conceitos relacionados:** carry trade, paridade descoberta de juros, aversão a risco.
+- **Onde cai no edital:** macroeconomia aberta — mercado cambial internacional.
+        """,
+    ),
+    Serie(
+        slug="brl_jpy",
+        nome="BRL/JPY (Yen em reais)",
+        bloco=BLOCO_EXTERNOS,
+        fonte="externo",
+        tipo_derivada="brl_jpy",
+        frequencia="D",
+        unidade="BRL/JPY",
+        acumulavel=False,
+        contexto="""
+O **BRL/JPY** é o cruzamento derivado: `BRL/JPY = PTAX (BRL/USD) ÷ USD/JPY (JPY/USD)`.
+
+- **Fonte:** derivado no dashboard a partir da PTAX do BCB e do USD/JPY do yfinance; diária.
+- **Por que importa:** mostra o real contra a moeda de funding do carry trade, concentrando em uma
+única série o apetite global a risco.
+- **Onde cai no edital:** macroeconomia aberta — câmbio cruzado e carry trade.
         """,
     ),
 ]

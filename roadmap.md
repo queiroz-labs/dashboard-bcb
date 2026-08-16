@@ -17,7 +17,7 @@ Prioridade no dia a dia: **1 e 2 andam juntos desde a Fase 1** (o projeto é lit
 | Camada | Escolha | Por quê |
 |---|---|---|
 | Linguagem | Python | Já em uso, reforça a expansão pra data science |
-| Dados | `requests` + API SGS do BCB, SIDRA (IBGE), IPEA Data | Fontes oficiais, gratuitas, sem necessidade de scraping |
+| Dados | `requests` + API SGS do BCB, SIDRA (IBGE), IPEA Data; `yfinance`/Finnhub como fontes externas de protótipo | Fontes oficiais quando disponíveis; fontes externas ficam isoladas e não são adequadas para produto comercial sem validação |
 | Manipulação | pandas | Consolidação do que já usa no DRE Forecast |
 | Armazenamento | SQLite (local) → Postgres se for pra SaaS | Simples de começar, migra fácil depois |
 | Visualização | Plotly ou Streamlit nativo | Interatividade sem reescrever tudo depois |
@@ -78,7 +78,7 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 - Catálogo final com 12 séries nos quatro blocos e 25 testes passing.
 - Taxas futuras permanecem pendentes até existir uma fonte pública estável definida.
 
-## Fase 3 — Estatística/Econometria aplicada 🔄 (em andamento desde ago/2026)
+## Fase 3 — Estatística/Econometria aplicada ✅ (concluída em ago/2026)
 
 **Meta:** ir além da visualização — adicionar análises que praticam o bloco de Estatística/Econometria do edital.
 
@@ -90,14 +90,34 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 - Programação: `statsmodels`, primeiros modelos, visualização de resultados estatísticos.
 - Macro/Estatística: essa fase é a mais alinhada ao bloco mais técnico da prova — o dashboard vira literalmente um caderno de exercícios interativo.
 
-**Entregue até agora (ago/2026):**
-- Nova aba "Análises" com **Decomposição** (tendência/sazonal/resíduo, aditiva, period=12) e **Teste ADF** (nível + 1ª diferença, com p-valor, críticos e conclusão) para as séries mensais do catálogo.
-- `src/econometria.py`: `decompor()` e `rodar_adf()` com statsmodels.
-- Cards de interpretação estatística conectados ao edital (raiz unitária, ordem de integração, dessazonalização).
-- **Cache sob demanda implementado (pendência resolvida):** o app agora lê primeiro do SQLite e só consulta a API quando o usuário clica em "Atualizar dados" (ou quando não há cache); cada série exibe a "última atualização" (`src/storage.py: salvar_meta/ler_meta`).
-- Testes: 31 passing, incluindo econometria sintética (sazonalidade detectada; ADF em ruído branco e passeio aleatório) e metadados de cache.
+**Entregue (ago/2026):**
+- Nova aba "Análises" com **Decomposição** (tendência/sazonal/resíduo, aditiva, period=12), **Teste ADF** (nível + 1ª diferença, com p-valor, críticos e conclusão), **Correlação** (Pearson, com transformações nível/variação %/1ª diferença) e **Regressão simples** (α, β, R², p-valor e gráfico OLS).
+- `src/econometria.py`: `decompor()`, `rodar_adf()`, `transformar()`, `correlacionar()` e `regressao_simples()` com statsmodels.
+- Séries diárias são mensalizadas automaticamente nas análises (último valor do mês).
+- Cards de interpretação estatística conectados ao edital (raiz unitária, ordem de integração, correlação espúria, MQO).
+- **Cache sob demanda implementado (pendência resolvida):** o app lê primeiro do SQLite e só consulta a API quando o usuário clica em "Atualizar dados" (ou quando não há cache); cada série exibe a "última atualização" (`src/storage.py: salvar_meta/ler_meta`).
+- Testes: 39 passing (econometria sintética, metadados de cache, parsers), 5 skips de fontes externas no smoke test.
 
-**Pendências da Fase 3:** correlação entre indicadores e regressões simples (próximo lote).
+## Expansão 3B — Dados externos e correlação global ✅ (concluída em ago/2026)
+
+Esta expansão complementa a Fase 3 sem reabrir a Fase 2. O objetivo é permitir a leitura de relações entre Brasil e mercados globais, especialmente no bloco de Macroeconomia Aberta.
+
+**Indicadores:**
+- Ibovespa (`^BVSP`), Nasdaq (`^IXIC`) e S&P 500 (`^GSPC`), via `yfinance`.
+- USD/JPY via `yfinance` (`JPY=X`), cruzado com a PTAX do BCB para derivar BRL/JPY: `BRL/JPY = PTAX (BRL/USD) ÷ USD/JPY (JPY/USD)`.
+
+**Mudanças técnicas:**
+- `src/externos.py`: `fetch_ticker()` (coluna Close, índice diário sem timezone) e `cruzamento_brl_jpy()` (função pura).
+- Catálogo estendido com bloco **Externos** e campos `ticker`/`tipo_derivada`; cards de contexto (apetite a risco, carry trade).
+- Cache reutilizado (`_buscar_ou_cache` + `meta_series`); `.env` adicionado ao `.gitignore`.
+- `yfinance` instalado e pinado no `requirements.txt` (1.6.0) — fonte de protótipo, sem SLA.
+- Testes com yfinance mockado (parse, multi-índice, cruzamento).
+
+**Aplicação econométrica (validada com dados reais):**
+- Correlação mensal (variação %) Ibovespa × PTAX ≈ −0,69; S&P 500 × PTAX ≈ −0,34.
+- Regressão PTAX ~ S&P 500 (variação %): β ≈ −0,30, R² ≈ 0,11, p-valor < 0,001.
+
+**Critério de conclusão atingido:** 5 séries externas no Explorador (3 índices + USD/JPY + BRL/JPY derivado), com cache local, unidades documentadas, fallback via cache e nenhuma chave exposta. Finnhub segue reservado para a agenda econômica na Fase 4.
 
 ## Fase 4 — Produto: UX e diferenciação
 
@@ -105,7 +125,9 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 
 - Público-alvo a definir: candidatos a concursos de área econômica (BACEN, ANPEC, outros)? Analistas financeiros júnior? Pequenas empresas que precisam de contexto macro pro planejamento (conecta com o público do DRE Forecast)?
 - UX: exportação de relatórios (PDF/Excel), alertas de mudança de indicador, comparação histórica (ex: "SELIC hoje vs. mesmo período em crises passadas").
-- Programação: polish de interface, performance de carregamento, cache de dados da API.
+- UX adicional: agenda econômica semanal com decisões de juros, PIB, payroll, CPI e outros eventos relevantes, exibindo data/hora, país, anterior, expectativa, realizado e impacto.
+- Programação: polish de interface, performance de carregamento e evolução do cache de dados da API.
+- Agenda: padronizar datas para o fuso `America/Sao_Paulo`, tratar horário de verão quando aplicável e normalizar diferenças entre fontes.
 
 ## Fase 5 — Comercialização
 
@@ -121,7 +143,9 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 ## Riscos e decisões em aberto
 
 - **Desktop vs. web** ✅ resolvido — Streamlit web (ver Fase 1).
-- **Dependência de API pública:** SGS do BCB é estável, mas vale ter cache local pra não depender de disponibilidade em tempo real.
+- **Dependência de APIs públicas:** SGS do BCB é estável e o cache SQLite já mitiga indisponibilidade; `yfinance` não tem SLA (fica restrito a protótipo até a Fase 5) e o Finnhub, se usado na agenda (Fase 4), exige chave e respeita limite de chamadas.
+- **Segredos e configuração externa:** `.env` já está fora do Git; se o Finnhub entrar, a chave vai em variável de ambiente, nunca versionada.
+- **Fuso horário da agenda:** eventos externos podem vir em UTC ou horário de Nova York; toda exibição deve ser convertida para `America/Sao_Paulo`.
 - **Escopo de aprendizado vs. escopo de produto:** garantir que features "de estudo" (cards de contexto, explicações) não fiquem em conflito com o que um comprador não-concurseiro quer ver.
 - **Timing:** BACEN é prioridade máxima até o edital sair (~jan/2027). Esse projeto deve reforçar o estudo, não competir com ele — se em algum momento virar distração, phases 4-5 esperam.
 
@@ -134,5 +158,6 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 | 1 | App roda local, 1 gráfico correto |
 | 2 | 10+ séries no ar, você consegue "estudar" usando o próprio dashboard |
 | 3 | Consegue responder questões de estatística/econometria do edital usando dados reais do projeto |
+| 3B | 4+ indicadores externos integrados, cacheados e usados em uma correlação Brasil × exterior |
 | 4 | Alguém fora de você usaria sem precisar de explicação |
 | 5 | Primeira venda ou primeira assinatura paga |

@@ -5,7 +5,13 @@ from plotly.subplots import make_subplots
 
 from src.bcb import fetch_sgs
 from src.catalogo import CATALOGO, Serie
-from src.econometria import decompor, rodar_adf
+from src.econometria import (
+    correlacionar,
+    decompor,
+    regressao_simples,
+    rodar_adf,
+)
+from src.externos import cruzamento_brl_jpy, fetch_ticker
 from src.focus import fetch_focus
 from src.metrics import acumulada_12m, formatar_periodo, ultima_do_mes
 from src.storage import ler_meta, load_series, salvar_meta, save_series
@@ -210,6 +216,20 @@ A SELIC é o piso da estrutura de juros: CDI, financiamentos, títulos públicos
 def _baixar_serie(serie: Serie) -> pd.DataFrame:
     if serie.fonte == "focus":
         df = fetch_focus(serie.focus_tipo, name=serie.slug)
+    elif serie.fonte == "externo":
+        if serie.tipo_derivada == "brl_jpy":
+            hoje = pd.Timestamp.today()
+            inicio = (hoje - pd.DateOffset(years=10)).strftime("%d/%m/%Y")
+            ptax = fetch_sgs(
+                1,
+                name="ptax",
+                data_inicial=inicio,
+                data_final=hoje.strftime("%d/%m/%Y"),
+            )
+            usd_jpy = fetch_ticker("JPY=X", name="usd_jpy")
+            df = cruzamento_brl_jpy(ptax, usd_jpy)
+        else:
+            df = fetch_ticker(serie.ticker, name=serie.slug)
     elif serie.fonte == "sgs" and serie.frequencia == "D":
         hoje = pd.Timestamp.today()
         inicio = (hoje - pd.DateOffset(years=10)).strftime("%d/%m/%Y")
@@ -327,65 +347,80 @@ def pagina_explorador() -> None:
         st.markdown(serie.contexto)
 
 
+def _mensalizar(df: pd.DataFrame, serie: Serie) -> pd.DataFrame:
+    if serie.frequencia == "D":
+        return ultima_do_mes(df)
+    return df
+
+
 def pagina_analises() -> None:
     st.title("Análises — Estatística/Econometria")
-    st.caption("Fase 3 — decomposição de séries e teste ADF")
+    st.caption("Fase 3 — decomposição, ADF, correlação e regressão")
 
     analise = st.radio(
-        "Análise", ["Decomposição", "Teste ADF"], horizontal=True
+        "Análise",
+        ["Decomposição", "Teste ADF", "Correlação", "Regressão"],
+        horizontal=True,
     )
 
-    mensais = [s for s in CATALOGO if s.frequencia == "M"]
-    por_nome = {s.nome: s for s in mensais}
-    sel_serie, botao_atualizar = st.columns([4, 1])
-    serie = por_nome[sel_serie.selectbox("Série", list(por_nome))]
-    atualizar = botao_atualizar.button("Atualizar dados")
+    transformacoes = {
+        "nível": "nivel",
+        "variação %": "var_pct",
+        "1ª diferença": "diff",
+    }
 
-    with st.spinner(f"Carregando {serie.nome}..."):
-        df, origem = carregar_serie(serie, atualizar)
+    if analise in ("Decomposição", "Teste ADF"):
+        mensais = [s for s in CATALOGO if s.frequencia == "M"]
+        por_nome = {s.nome: s for s in mensais}
+        sel_serie, botao_atualizar = st.columns([4, 1])
+        serie = por_nome[sel_serie.selectbox("Série", list(por_nome))]
+        atualizar = botao_atualizar.button("Atualizar dados")
 
-    if df is None:
-        st.error("Sem dados: API indisponível e sem cache local.")
-        st.stop()
+        with st.spinner(f"Carregando {serie.nome}..."):
+            df, _ = carregar_serie(serie, atualizar)
 
-    col = serie.slug
-
-    if analise == "Decomposição":
-        if df[col].notna().sum() < 24:
-            st.warning("A série precisa de pelo menos 24 observações mensais.")
+        if df is None:
+            st.error("Sem dados: API indisponível e sem cache local.")
             st.stop()
-        comp = decompor(df, col)
-        fig = make_subplots(
-            rows=4,
-            cols=1,
-            shared_xaxes=True,
-            subplot_titles=[
-                "Série observada",
-                "Tendência",
-                "Sazonalidade",
-                "Resíduo",
-            ],
-        )
-        for row, (titulo, dados) in enumerate(
-            [
-                (col, df[col]),
-                ("tendência", comp["trend"]),
-                ("sazonalidade", comp["seasonal"]),
-                ("resíduo", comp["resid"]),
-            ],
-            start=1,
-        ):
-            fig.add_scatter(
-                x=dados.index, y=dados, mode="lines", name=titulo, row=row, col=1
+
+        col = serie.slug
+
+        if analise == "Decomposição":
+            if df[col].notna().sum() < 24:
+                st.warning("A série precisa de pelo menos 24 observações mensais.")
+                st.stop()
+            comp = decompor(df, col)
+            fig = make_subplots(
+                rows=4,
+                cols=1,
+                shared_xaxes=True,
+                subplot_titles=[
+                    "Série observada",
+                    "Tendência",
+                    "Sazonalidade",
+                    "Resíduo",
+                ],
             )
-        fig.update_layout(
-            height=760,
-            margin=dict(l=0, r=0, t=40, b=0),
-            showlegend=False,
-        )
-        st.plotly_chart(fig, width="stretch")
-        st.markdown(
-            """
+            for row, (titulo, dados) in enumerate(
+                [
+                    (col, df[col]),
+                    ("tendência", comp["trend"]),
+                    ("sazonalidade", comp["seasonal"]),
+                    ("resíduo", comp["resid"]),
+                ],
+                start=1,
+            ):
+                fig.add_scatter(
+                    x=dados.index, y=dados, mode="lines", name=titulo, row=row, col=1
+                )
+            fig.update_layout(
+                height=760,
+                margin=dict(l=0, r=0, t=40, b=0),
+                showlegend=False,
+            )
+            st.plotly_chart(fig, width="stretch")
+            st.markdown(
+                """
 **Decomposição aditiva:** Y = T + S + R.
 
 - **Tendência (T):** movimento de longo prazo da série (ex.: queda estrutural da inflação após o Plano Real).
@@ -394,29 +429,32 @@ def pagina_analises() -> None:
 
 > **Por que importa:** dessazonalizar é pré-requisito pra comparar variações de períodos vizinhos e pra modelar.
 > **Onde cai no edital:** séries temporais — componentes, ajuste sazonal e dessazonalização.
-            """
-        )
-    else:
-        res = rodar_adf(df[col])
-        tabela = pd.DataFrame(
-            [
-                {
-                    "Série": titulo,
-                    "Estatística ADF": f"{d['stat']:.3f}",
-                    "p-valor": f"{d['p']:.4f}",
-                    "Crítico 5%": f"{d['criticos']['5%']:.3f}",
-                    "Conclusão": (
-                        "estacionária"
-                        if d["estacionaria"]
-                        else "não estacionária"
-                    ),
-                }
-                for titulo, d in [("nível", res["nivel"]), ("1ª diferença", res["dif"])]
-            ]
-        )
-        st.dataframe(tabela, hide_index=True, width="stretch")
-        st.markdown(
-            """
+                """
+            )
+        else:
+            res = rodar_adf(df[col])
+            tabela = pd.DataFrame(
+                [
+                    {
+                        "Série": titulo,
+                        "Estatística ADF": f"{d['stat']:.3f}",
+                        "p-valor": f"{d['p']:.4f}",
+                        "Crítico 5%": f"{d['criticos']['5%']:.3f}",
+                        "Conclusão": (
+                            "estacionária"
+                            if d["estacionaria"]
+                            else "não estacionária"
+                        ),
+                    }
+                    for titulo, d in [
+                        ("nível", res["nivel"]),
+                        ("1ª diferença", res["dif"]),
+                    ]
+                ]
+            )
+            st.dataframe(tabela, hide_index=True, width="stretch")
+            st.markdown(
+                """
 **Teste de Dickey-Fuller aumentado (ADF):**
 
 - **H0:** a série tem raiz unitária (é não estacionária). p-valor < 5% rejeita H0 → estacionária.
@@ -425,6 +463,123 @@ def pagina_analises() -> None:
 
 > **Por que importa:** modelar série não estacionária em nível produz regressão espúria; a ordem de integração define a transformação correta.
 > **Onde cai no edital:** econometria — raiz unitária, estacionariedade e ordem de integração.
+                """
+            )
+        return
+
+    todas = {s.nome: s for s in CATALOGO}
+    nomes = list(todas)
+
+    if analise == "Correlação":
+        sel_a, sel_b, sel_t, botao_atualizar = st.columns([1, 1, 0.7, 0.5])
+        serie_a = todas[sel_a.selectbox("Série A", nomes)]
+        indice_b = 1 if len(nomes) > 1 else 0
+        serie_b = todas[sel_b.selectbox("Série B", nomes, index=indice_b)]
+        tipo = transformacoes[
+            sel_t.selectbox("Transformação", list(transformacoes))
+        ]
+        atualizar = botao_atualizar.button("Atualizar dados")
+
+        with st.spinner("Carregando séries..."):
+            df_a, _ = carregar_serie(serie_a, atualizar)
+            df_b, _ = carregar_serie(serie_b, atualizar)
+        if df_a is None or df_b is None:
+            st.error("Sem dados: API indisponível e sem cache local.")
+            st.stop()
+
+        df_a = _mensalizar(df_a, serie_a)
+        df_b = _mensalizar(df_b, serie_b)
+        res = correlacionar(df_a[serie_a.slug], df_b[serie_b.slug], tipo)
+
+        c1, c2 = st.columns(2)
+        c1.metric("Correlação de Pearson", f"{res['r']:.3f}")
+        c2.metric("Observações alinhadas", f"{res['n']}")
+
+        dados = res["dados"]
+        fig = px.scatter(
+            dados,
+            x="a",
+            y="b",
+            trendline="ols",
+            labels={
+                "a": f"{serie_a.nome} ({tipo})",
+                "b": f"{serie_b.nome} ({tipo})",
+            },
+            title=f"Correlação — {serie_a.nome} × {serie_b.nome}",
+        )
+        fig.update_layout(height=480, margin=dict(l=0, r=0, t=50, b=0))
+        st.plotly_chart(fig, width="stretch")
+        st.markdown(
+            """
+**Correlação de Pearson:** mede a associação linear entre duas variáveis, de −1 a +1.
+
+- |r| próximo de 1 → forte relação linear; próximo de 0 → relação fraca.
+- Correlação ≠ causalidade: duas séries podem andar juntas por um terceiro fator comum.
+- Séries não estacionárias em nível tendem a gerar correlação espúria — prefira variação % ou 1ª diferença (use o ADF pra conferir antes).
+
+> **Onde cai no edital:** estatística — correlação, associação linear e correlação espúria.
+            """
+        )
+    else:
+        sel_y, sel_x, sel_t, botao_atualizar = st.columns([1, 1, 0.7, 0.5])
+        serie_y = todas[sel_y.selectbox("Variável dependente (Y)", nomes)]
+        indice_x = 1 if len(nomes) > 1 else 0
+        serie_x = todas[
+            sel_x.selectbox("Variável explicativa (X)", nomes, index=indice_x)
+        ]
+        tipo = transformacoes[
+            sel_t.selectbox("Transformação", list(transformacoes))
+        ]
+        atualizar = botao_atualizar.button("Atualizar dados")
+
+        with st.spinner("Carregando séries..."):
+            df_x, _ = carregar_serie(serie_x, atualizar)
+            df_y, _ = carregar_serie(serie_y, atualizar)
+        if df_x is None or df_y is None:
+            st.error("Sem dados: API indisponível e sem cache local.")
+            st.stop()
+
+        df_x = _mensalizar(df_x, serie_x)
+        df_y = _mensalizar(df_y, serie_y)
+        res = regressao_simples(df_x[serie_x.slug], df_y[serie_y.slug], tipo)
+
+        tabela = pd.DataFrame(
+            [
+                {
+                    "α (constante)": f"{res['alpha']:.4f}",
+                    "β (inclinação)": f"{res['beta']:.4f}",
+                    "R²": f"{res['r2']:.3f}",
+                    "p-valor de β": f"{res['p_beta']:.4f}",
+                    "n": res["n"],
+                }
+            ]
+        )
+        st.dataframe(tabela, hide_index=True, width="stretch")
+
+        dados = res["dados"]
+        fig = px.scatter(
+            dados,
+            x="x",
+            y="y",
+            trendline="ols",
+            labels={
+                "x": f"{serie_x.nome} ({tipo})",
+                "y": f"{serie_y.nome} ({tipo})",
+            },
+            title=f"Regressão — {serie_y.nome} ~ {serie_x.nome}",
+        )
+        fig.update_layout(height=480, margin=dict(l=0, r=0, t=50, b=0))
+        st.plotly_chart(fig, width="stretch")
+        st.markdown(
+            """
+**Regressão linear simples:** Y = α + βX + ε.
+
+- **β:** variação esperada em Y para cada +1 unidade de X.
+- **R²:** fração da variância de Y explicada pelo modelo.
+- **p-valor de β:** teste da hipótese H0: β = 0; p < 5% rejeita H0.
+- Séries I(1) em nível podem gerar regressão espúria — rode o ADF antes e use variação % ou 1ª diferença.
+
+> **Onde cai no edital:** econometria — MQO, inferência e regressão espúria.
             """
         )
 

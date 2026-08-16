@@ -3,6 +3,7 @@ import pytest
 from src.catalogo import (
     BLOCO_ABERTA,
     BLOCO_ATIVIDADE,
+    BLOCO_EXTERNOS,
     BLOCO_MERCADO,
     BLOCO_POLITICA,
     CATALOGO,
@@ -21,6 +22,8 @@ def test_catalogo_integridade():
             assert isinstance(s.codigo_sgs, int)
         elif s.fonte == "focus":
             assert s.focus_tipo in {"ipca", "selic"}
+        elif s.fonte == "externo":
+            assert s.ticker or s.tipo_derivada
         elif s.fonte == "sidra":
             assert s.agregado and s.variavel
         else:
@@ -34,9 +37,11 @@ def test_catalogo_blocos_esperados():
         BLOCO_ATIVIDADE,
         BLOCO_POLITICA,
         BLOCO_MERCADO,
+        BLOCO_EXTERNOS,
     }
     assert all(
-        s.bloco in (BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA, BLOCO_MERCADO)
+        s.bloco
+        in (BLOCO_ABERTA, BLOCO_ATIVIDADE, BLOCO_POLITICA, BLOCO_MERCADO, BLOCO_EXTERNOS)
         for s in CATALOGO
     )
 
