@@ -62,9 +62,17 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 
 **Parte A entregue (ago/2026) — blocos Macroeconomia Aberta + Atividade/PIB:**
 - `src/catalogo.py`: registro de séries (slug, bloco, fonte, frequência, unidade, card de contexto) — 6 séries: PTAX (1, diária), balança comercial (22701), transações correntes (22702), reservas (3546), IBC-Br (24363), PIB trimestral índice de volume dessaz. (22099).
-- `app.py`: sidebar com 2 visões — SELIC (Fase 1 intacta) e Explorador de séries (bloco → série → métricas, gráfico, card). Séries diárias ganham toggle "agregar mensal (último valor)"; o mecanismo "acumulado 12 meses" já está pronto (reusado na Parte B com IPCA/IGP-M).
+- `app.py`: abas superiores — SELIC (Fase 1 intacta) e Explorador de séries (bloco → série → métricas, gráfico, card). Séries diárias ganham toggle "agregar mensal (último valor)"; o mecanismo "acumulado 12 meses" já está pronto (reusado na Parte B com IPCA/IGP-M).
 - Testes: integridade do catálogo, smoke test parametrizado de todas as séries (15 passing no total).
-- **Pendências:** SIDRA/IBGE retornou sem dados no ambiente ("..") — módulo adiado; PIB veio via SGS (22099). Partes B (Política monetária: IPCA, meta IPCA, Focus) e C (Mercado de capitais: CDI, IGP-M) seguem na lista acima.
+- **Pendência:** SIDRA/IBGE retornou sem dados no ambiente (".."); PIB veio via SGS (22099).
+
+**Parte B entregue (ago/2026) — Política Monetária:**
+- `src/focus.py`: integração filtrada com a API OData Focus, com parser da curva de expectativas do IPCA e da expectativa histórica para uma reunião futura da SELIC.
+- `src/catalogo.py`: IPCA mensal (433, acumulável em 12 meses), meta de inflação (13521), expectativa Focus de IPCA e expectativa Focus de SELIC.
+- Explorador atualizado para aceitar SGS e Focus, mantendo os cards de contexto e o tratamento de frequências.
+- Testes: 22 passing, incluindo parsers Focus e smoke tests das quatro séries novas.
+
+**Parte C pendente — Mercado de Capitais:** CDI diário (12) e IGP-M mensal (189). Taxas futuras ficam para quando houver fonte pública estável definida.
 
 ## Fase 3 — Estatística/Econometria aplicada
 

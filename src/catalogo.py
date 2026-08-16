@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 BLOCO_ABERTA = "Macroeconomia Aberta"
 BLOCO_ATIVIDADE = "Atividade e PIB"
+BLOCO_POLITICA = "Política Monetária"
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,7 @@ class Serie:
     codigo_sgs: int | None = None
     agregado: str | None = None
     variavel: str | None = None
+    focus_tipo: str | None = None
     acumulavel: bool = False
 
 
@@ -142,6 +144,85 @@ guiam decisões de política monetária e fiscal.
 - **Conceitos relacionados:** PIB pelas óticas da despesa/renda/produção, crescimento real × nominal,
 dessazonalização (ajuste sazonal), deflator implícito.
 - **Onde cai no edital:** contas nacionais — PIB e componentes.
+        """,
+    ),
+    Serie(
+        slug="ipca",
+        nome="IPCA mensal",
+        bloco=BLOCO_POLITICA,
+        fonte="sgs",
+        codigo_sgs=433,
+        frequencia="M",
+        unidade="% a.m.",
+        acumulavel=True,
+        contexto="""
+**IPCA** (Índice Nacional de Preços ao Consumidor Amplo) é o índice oficial de inflação do Brasil,
+calculado pelo IBGE a partir de uma cesta de bens e serviços consumidos pelas famílias.
+
+- **Quem publica:** IBGE; série 433 da API SGS do Banco Central; variação mensal em % a.m.
+- **Por que importa:** é a referência do regime de metas de inflação e orienta decisões do Copom.
+- **Conceitos relacionados:** índice de preços, inflação cheia e núcleos, inflação acumulada e
+efeito de segunda ordem.
+- **Onde cai no edital:** inflação, índices de preços e política monetária.
+        """,
+    ),
+    Serie(
+        slug="meta_ipca",
+        nome="Meta de inflação (IPCA)",
+        bloco=BLOCO_POLITICA,
+        fonte="sgs",
+        codigo_sgs=13521,
+        frequencia="A",
+        unidade="% a.a.",
+        acumulavel=False,
+        contexto="""
+**A meta de inflação** é o objetivo anual para a variação do IPCA dentro do regime brasileiro
+de metas, definido pelo Conselho Monetário Nacional.
+
+- **Quem define:** CMN; série 13521 da API SGS; uma observação por ano, em % a.a.
+- **Por que importa:** ancora expectativas e dá ao Banco Central o objetivo contra o qual a inflação
+realizada e a política monetária são avaliadas.
+- **Conceitos relacionados:** intervalo de tolerância, expectativas racionais, credibilidade e
+custo da desinflação.
+- **Onde cai no edital:** regime de metas de inflação e instituições do Sistema Financeiro Nacional.
+        """,
+    ),
+    Serie(
+        slug="focus_ipca",
+        nome="Expectativa Focus — IPCA mensal",
+        bloco=BLOCO_POLITICA,
+        fonte="focus",
+        focus_tipo="ipca",
+        frequencia="M",
+        unidade="% esperado",
+        acumulavel=False,
+        contexto="""
+**A pesquisa Focus** reúne projeções do mercado para indicadores macroeconômicos. Esta série mostra
+as medianas mais recentes das expectativas para o IPCA de cada mês futuro.
+
+- **Quem publica:** Banco Central, pesquisa de expectativas via API Olinda; atualização semanal.
+- **Por que importa:** expectativas de inflação afetam preços, salários, contratos e a decisão do Copom.
+- **Conceitos relacionados:** formação de expectativas, curva de Phillips e ancoragem das expectativas.
+- **Onde cai no edital:** política monetária, inflação esperada e mecanismo de transmissão.
+        """,
+    ),
+    Serie(
+        slug="focus_selic",
+        nome="Expectativa Focus — SELIC",
+        bloco=BLOCO_POLITICA,
+        fonte="focus",
+        focus_tipo="selic",
+        frequencia="D",
+        unidade="% a.a. esperado",
+        acumulavel=False,
+        contexto="""
+Esta série acompanha a mediana das expectativas do mercado para a SELIC em uma reunião futura
+do Copom, ao longo das datas de divulgação da pesquisa Focus.
+
+- **Quem publica:** Banco Central, pesquisa de expectativas via API Olinda; atualização semanal.
+- **Por que importa:** resume a trajetória esperada dos juros e ajuda a interpretar a curva de juros.
+- **Conceitos relacionados:** juros nominais e reais, prêmio de risco, forward guidance e curva a termo.
+- **Onde cai no edital:** política monetária e mercado de renda fixa.
         """,
     ),
 ]

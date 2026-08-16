@@ -4,6 +4,7 @@ import streamlit as st
 
 from src.bcb import fetch_sgs
 from src.catalogo import CATALOGO, Serie
+from src.focus import fetch_focus
 from src.metrics import aa_para_am, acumulada_12m, ultima_do_mes
 from src.storage import load_series, save_series
 
@@ -191,9 +192,9 @@ A SELIC é o piso da estrutura de juros: CDI, financiamentos, títulos públicos
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _baixar_serie(serie: Serie) -> pd.DataFrame:
-    if serie.fonte != "sgs":
-        raise ValueError(f"fonte não suportada: {serie.fonte}")
-    if serie.frequencia == "D":
+    if serie.fonte == "focus":
+        df = fetch_focus(serie.focus_tipo, name=serie.slug)
+    elif serie.fonte == "sgs" and serie.frequencia == "D":
         hoje = pd.Timestamp.today()
         inicio = (hoje - pd.DateOffset(years=10)).strftime("%d/%m/%Y")
         df = fetch_sgs(
@@ -202,8 +203,10 @@ def _baixar_serie(serie: Serie) -> pd.DataFrame:
             data_inicial=inicio,
             data_final=hoje.strftime("%d/%m/%Y"),
         )
-    else:
+    elif serie.fonte == "sgs":
         df = fetch_sgs(serie.codigo_sgs, name=serie.slug)
+    else:
+        raise ValueError(f"fonte não suportada: {serie.fonte}")
     save_series(df, serie.slug)
     return df
 
@@ -220,13 +223,14 @@ def carregar_serie(serie: Serie) -> tuple[pd.DataFrame | None, str | None]:
 
 def pagina_explorador() -> None:
     st.title("Explorador de séries")
-    st.caption("Fase 2 — blocos: Macroeconomia Aberta e Atividade/PIB")
+    st.caption("Fase 2 — blocos: Macroeconomia Aberta, Atividade/PIB e Política Monetária")
 
     blocos = sorted({s.bloco for s in CATALOGO})
-    bloco = st.sidebar.selectbox("Bloco", blocos)
+    seletor_bloco, seletor_serie = st.columns(2)
+    bloco = seletor_bloco.selectbox("Bloco", blocos)
     series_bloco = [s for s in CATALOGO if s.bloco == bloco]
     por_nome = {s.nome: s for s in series_bloco}
-    nome = st.sidebar.selectbox("Série", list(por_nome))
+    nome = seletor_serie.selectbox("Série", list(por_nome))
     serie = por_nome[nome]
 
     with st.spinner(f"Buscando {serie.nome}..."):
@@ -261,7 +265,7 @@ def pagina_explorador() -> None:
     if serie.frequencia == "D":
         agregar = st.checkbox(
             "Agregar mensal (último valor do mês)",
-            value=True,
+            value=False,
             help="A série é diária; marcado, cada mês é representado pelo valor vigente no fim do mês",
         )
         if agregar:
@@ -297,9 +301,15 @@ def pagina_explorador() -> None:
         st.markdown(serie.contexto)
 
 
-visao = st.sidebar.radio("Visão", ["SELIC", "Explorador de séries"])
+aba_selic, aba_explorador = st.tabs(
+    ["SELIC", "Explorador de séries"],
+    on_change="rerun",
+)
 
-if visao == "SELIC":
-    pagina_selic()
-else:
-    pagina_explorador()
+if aba_selic.open:
+    with aba_selic:
+        pagina_selic()
+
+if aba_explorador.open:
+    with aba_explorador:
+        pagina_explorador()
