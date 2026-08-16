@@ -78,7 +78,7 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 - Catálogo final com 12 séries nos quatro blocos e 25 testes passing.
 - Taxas futuras permanecem pendentes até existir uma fonte pública estável definida.
 
-## Fase 3 — Estatística/Econometria aplicada
+## Fase 3 — Estatística/Econometria aplicada 🔄 (em andamento desde ago/2026)
 
 **Meta:** ir além da visualização — adicionar análises que praticam o bloco de Estatística/Econometria do edital.
 
@@ -89,6 +89,15 @@ Cada série no dashboard ganha um **card de contexto** (o que é, onde cai no ed
 
 - Programação: `statsmodels`, primeiros modelos, visualização de resultados estatísticos.
 - Macro/Estatística: essa fase é a mais alinhada ao bloco mais técnico da prova — o dashboard vira literalmente um caderno de exercícios interativo.
+
+**Entregue até agora (ago/2026):**
+- Nova aba "Análises" com **Decomposição** (tendência/sazonal/resíduo, aditiva, period=12) e **Teste ADF** (nível + 1ª diferença, com p-valor, críticos e conclusão) para as séries mensais do catálogo.
+- `src/econometria.py`: `decompor()` e `rodar_adf()` com statsmodels.
+- Cards de interpretação estatística conectados ao edital (raiz unitária, ordem de integração, dessazonalização).
+- **Cache sob demanda implementado (pendência resolvida):** o app agora lê primeiro do SQLite e só consulta a API quando o usuário clica em "Atualizar dados" (ou quando não há cache); cada série exibe a "última atualização" (`src/storage.py: salvar_meta/ler_meta`).
+- Testes: 31 passing, incluindo econometria sintética (sazonalidade detectada; ADF em ruído branco e passeio aleatório) e metadados de cache.
+
+**Pendências da Fase 3:** correlação entre indicadores e regressões simples (próximo lote).
 
 ## Fase 4 — Produto: UX e diferenciação
 

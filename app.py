@@ -1,12 +1,14 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from plotly.subplots import make_subplots
 
 from src.bcb import fetch_sgs
 from src.catalogo import CATALOGO, Serie
+from src.econometria import decompor, rodar_adf
 from src.focus import fetch_focus
 from src.metrics import acumulada_12m, formatar_periodo, ultima_do_mes
-from src.storage import load_series, save_series
+from src.storage import ler_meta, load_series, salvar_meta, save_series
 
 st.set_page_config(page_title="Dashboard BCB", layout="wide")
 
@@ -43,59 +45,59 @@ def seletor_periodo() -> pd.Timestamp | None:
     return pd.Timestamp.today() - pd.DateOffset(years=anos)
 
 
+def _buscar_ou_cache(tabela: str, baixar, atualizar: bool):
+    if not atualizar:
+        df = load_series(tabela)
+        if df is not None:
+            return df, "cache local"
+    try:
+        df = baixar()
+    except Exception:
+        df = load_series(tabela)
+        if df is None:
+            return None, None
+        return df, "cache local (API indisponível)"
+    save_series(df, tabela)
+    salvar_meta(tabela, pd.Timestamp.now().strftime("%d/%m/%Y %H:%M"))
+    return df, "API"
+
+
 def pagina_selic() -> None:
     st.title("Dashboard de Séries Macro — BCB/SGS")
     st.caption("Fase 1 — MVP: SELIC mensal (série 4390 da API SGS)")
 
-    @st.cache_data(ttl=3600)
+    col_btn, _ = st.columns([1, 5])
+    atualizar = col_btn.button("Atualizar dados")
+
     def baixar_selic() -> pd.DataFrame:
-        df = fetch_sgs(SERIE_SELIC_MENSAL, name=NOME_SELIC_MENSAL)
-        save_series(df, TABELA_SELIC_MENSAL)
-        return df
+        return fetch_sgs(SERIE_SELIC_MENSAL, name=NOME_SELIC_MENSAL)
 
-    @st.cache_data(ttl=3600)
     def baixar_selic_anual() -> pd.DataFrame:
-        df = fetch_sgs(SERIE_SELIC_ANUAL, name=NOME_SELIC_ANUAL)
-        save_series(df, TABELA_SELIC_ANUAL)
-        return df
+        return fetch_sgs(SERIE_SELIC_ANUAL, name=NOME_SELIC_ANUAL)
 
-    @st.cache_data(ttl=3600)
     def baixar_meta() -> pd.DataFrame:
         hoje = pd.Timestamp.today()
         inicio = (hoje - pd.DateOffset(years=10)).strftime("%d/%m/%Y")
-        df = fetch_sgs(
+        return fetch_sgs(
             META_SELIC,
             name="meta_selic",
             data_inicial=inicio,
             data_final=hoje.strftime("%d/%m/%Y"),
         )
-        save_series(df, TABELA_META)
-        return df
 
-    with st.spinner("Buscando SELIC na API SGS..."):
-        try:
-            df = baixar_selic()
-            origem = "API SGS do Banco Central"
-        except Exception:
-            df = load_series(TABELA_SELIC_MENSAL)
-            if df is None:
-                st.error("API indisponível e sem cache local. Tente novamente mais tarde.")
-                st.stop()
-            origem = "cache local (API indisponível)"
-
-    try:
-        df_anual = baixar_selic_anual()
-    except Exception:
-        df_anual = load_series(TABELA_SELIC_ANUAL)
-
-    try:
-        meta = baixar_meta()
-    except Exception:
-        meta = load_series(TABELA_META)
+    with st.spinner("Carregando dados da SELIC..."):
+        df, origem = _buscar_ou_cache(TABELA_SELIC_MENSAL, baixar_selic, atualizar)
+        if df is None:
+            st.error("Sem dados: API indisponível e sem cache local.")
+            st.stop()
+        df_anual, _ = _buscar_ou_cache(
+            TABELA_SELIC_ANUAL, baixar_selic_anual, atualizar
+        )
+        meta, _ = _buscar_ou_cache(TABELA_META, baixar_meta, atualizar)
 
     st.success(
-        f"Fonte: {origem} · {len(df)} observações · "
-        f"{df.index.min():%b/%Y} a {df.index.max():%b/%Y}"
+        f"Fonte: {origem} · última atualização: {ler_meta(TABELA_SELIC_MENSAL) or 'nunca'} · "
+        f"{len(df)} observações · {df.index.min():%b/%Y} a {df.index.max():%b/%Y}"
     )
 
     ultimo = df.iloc[-1, 0]
@@ -205,7 +207,6 @@ A SELIC é o piso da estrutura de juros: CDI, financiamentos, títulos públicos
         )
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
 def _baixar_serie(serie: Serie) -> pd.DataFrame:
     if serie.fonte == "focus":
         df = fetch_focus(serie.focus_tipo, name=serie.slug)
@@ -226,14 +227,10 @@ def _baixar_serie(serie: Serie) -> pd.DataFrame:
     return df
 
 
-def carregar_serie(serie: Serie) -> tuple[pd.DataFrame | None, str | None]:
-    try:
-        return _baixar_serie(serie), "API"
-    except Exception:
-        df = load_series(serie.slug)
-        if df is None:
-            return None, None
-        return df, "cache local (API indisponível)"
+def carregar_serie(
+    serie: Serie, atualizar: bool = False
+) -> tuple[pd.DataFrame | None, str | None]:
+    return _buscar_ou_cache(serie.slug, lambda: _baixar_serie(serie), atualizar)
 
 
 def pagina_explorador() -> None:
@@ -244,23 +241,24 @@ def pagina_explorador() -> None:
     )
 
     blocos = sorted({s.bloco for s in CATALOGO})
-    seletor_bloco, seletor_serie = st.columns(2)
+    seletor_bloco, seletor_serie, botao_atualizar = st.columns([1, 1, 0.5])
     bloco = seletor_bloco.selectbox("Bloco", blocos)
     series_bloco = [s for s in CATALOGO if s.bloco == bloco]
     por_nome = {s.nome: s for s in series_bloco}
     nome = seletor_serie.selectbox("Série", list(por_nome))
     serie = por_nome[nome]
+    atualizar = botao_atualizar.button("Atualizar dados")
 
-    with st.spinner(f"Buscando {serie.nome}..."):
-        df, origem = carregar_serie(serie)
+    with st.spinner(f"Carregando {serie.nome}..."):
+        df, origem = carregar_serie(serie, atualizar)
 
     if df is None:
-        st.error("API indisponível e sem cache local. Tente novamente mais tarde.")
+        st.error("Sem dados: API indisponível e sem cache local.")
         st.stop()
 
     st.success(
-        f"Fonte: {origem} · {len(df)} observações · "
-        f"{df.index.min():%b/%Y} a {df.index.max():%b/%Y}"
+        f"Fonte: {origem} · última atualização: {ler_meta(serie.slug) or 'nunca'} · "
+        f"{len(df)} observações · {df.index.min():%b/%Y} a {df.index.max():%b/%Y}"
     )
 
     col = serie.slug
@@ -329,8 +327,110 @@ def pagina_explorador() -> None:
         st.markdown(serie.contexto)
 
 
-aba_selic, aba_explorador = st.tabs(
-    ["SELIC", "Explorador de séries"],
+def pagina_analises() -> None:
+    st.title("Análises — Estatística/Econometria")
+    st.caption("Fase 3 — decomposição de séries e teste ADF")
+
+    analise = st.radio(
+        "Análise", ["Decomposição", "Teste ADF"], horizontal=True
+    )
+
+    mensais = [s for s in CATALOGO if s.frequencia == "M"]
+    por_nome = {s.nome: s for s in mensais}
+    sel_serie, botao_atualizar = st.columns([4, 1])
+    serie = por_nome[sel_serie.selectbox("Série", list(por_nome))]
+    atualizar = botao_atualizar.button("Atualizar dados")
+
+    with st.spinner(f"Carregando {serie.nome}..."):
+        df, origem = carregar_serie(serie, atualizar)
+
+    if df is None:
+        st.error("Sem dados: API indisponível e sem cache local.")
+        st.stop()
+
+    col = serie.slug
+
+    if analise == "Decomposição":
+        if df[col].notna().sum() < 24:
+            st.warning("A série precisa de pelo menos 24 observações mensais.")
+            st.stop()
+        comp = decompor(df, col)
+        fig = make_subplots(
+            rows=4,
+            cols=1,
+            shared_xaxes=True,
+            subplot_titles=[
+                "Série observada",
+                "Tendência",
+                "Sazonalidade",
+                "Resíduo",
+            ],
+        )
+        for row, (titulo, dados) in enumerate(
+            [
+                (col, df[col]),
+                ("tendência", comp["trend"]),
+                ("sazonalidade", comp["seasonal"]),
+                ("resíduo", comp["resid"]),
+            ],
+            start=1,
+        ):
+            fig.add_scatter(
+                x=dados.index, y=dados, mode="lines", name=titulo, row=row, col=1
+            )
+        fig.update_layout(
+            height=760,
+            margin=dict(l=0, r=0, t=40, b=0),
+            showlegend=False,
+        )
+        st.plotly_chart(fig, width="stretch")
+        st.markdown(
+            """
+**Decomposição aditiva:** Y = T + S + R.
+
+- **Tendência (T):** movimento de longo prazo da série (ex.: queda estrutural da inflação após o Plano Real).
+- **Sazonalidade (S):** padrão que se repete a cada 12 meses (ex.: IPCA pressionado por alimentação no início do ano; atividade mais fraca no 1º trimestre).
+- **Resíduo (R):** o que sobra — choques pontuais e ruído; o componente usado em diagnósticos de outliers.
+
+> **Por que importa:** dessazonalizar é pré-requisito pra comparar variações de períodos vizinhos e pra modelar.
+> **Onde cai no edital:** séries temporais — componentes, ajuste sazonal e dessazonalização.
+            """
+        )
+    else:
+        res = rodar_adf(df[col])
+        tabela = pd.DataFrame(
+            [
+                {
+                    "Série": titulo,
+                    "Estatística ADF": f"{d['stat']:.3f}",
+                    "p-valor": f"{d['p']:.4f}",
+                    "Crítico 5%": f"{d['criticos']['5%']:.3f}",
+                    "Conclusão": (
+                        "estacionária"
+                        if d["estacionaria"]
+                        else "não estacionária"
+                    ),
+                }
+                for titulo, d in [("nível", res["nivel"]), ("1ª diferença", res["dif"])]
+            ]
+        )
+        st.dataframe(tabela, hide_index=True, width="stretch")
+        st.markdown(
+            """
+**Teste de Dickey-Fuller aumentado (ADF):**
+
+- **H0:** a série tem raiz unitária (é não estacionária). p-valor < 5% rejeita H0 → estacionária.
+- Se o nível é não estacionário e a 1ª diferença é estacionária, a série é integrada de ordem 1 — I(1).
+- Séries econômicas em nível (PIB, IBC-Br) costumam ser I(1); variações percentuais (IPCA mensal) tendem a ser estacionárias.
+
+> **Por que importa:** modelar série não estacionária em nível produz regressão espúria; a ordem de integração define a transformação correta.
+> **Onde cai no edital:** econometria — raiz unitária, estacionariedade e ordem de integração.
+            """
+        )
+
+
+aba_selic, aba_explorador, aba_analises = st.tabs(
+    ["SELIC", "Explorador de séries", "Análises"],
     on_change="rerun",
 )
 
@@ -341,3 +441,7 @@ if aba_selic.open:
 if aba_explorador.open:
     with aba_explorador:
         pagina_explorador()
+
+if aba_analises.open:
+    with aba_analises:
+        pagina_analises()
