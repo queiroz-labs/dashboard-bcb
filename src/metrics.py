@@ -22,6 +22,11 @@ def ultima_do_mes(df: pd.DataFrame) -> pd.DataFrame:
     return df.resample("MS").last()
 
 
+def variacao_interanual(serie: pd.Series, frequencia: str) -> pd.Series:
+    periodos = {"M": 12, "T": 4, "A": 1}.get(frequencia, 12)
+    return serie.pct_change(periods=periodos) * 100
+
+
 def formatar_periodo(data: pd.Timestamp, frequencia: str) -> str:
     if frequencia == "D":
         return data.strftime("%d/%m/%Y")

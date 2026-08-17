@@ -119,6 +119,75 @@ Esta expansão complementa a Fase 3 sem reabrir a Fase 2. O objetivo é permitir
 
 **Critério de conclusão atingido:** 5 séries externas no Explorador (3 índices + USD/JPY + BRL/JPY derivado), com cache local, unidades documentadas, fallback via cache e nenhuma chave exposta. Finnhub segue reservado para a agenda econômica na Fase 4.
 
+## Fase 3C — Indicadores macroeconômicos estruturais (priorizada)
+
+**Meta:** completar a leitura do cenário brasileiro com fiscal, trabalho, atividade, crédito, inflação e condições financeiras, nesta ordem de importância. A fase deve ampliar o catálogo sem sacrificar a documentação conceitual, o cache e a confiabilidade das fontes.
+
+### Prioridade 1 — Fiscal, trabalho e transmissão monetária
+
+Estes indicadores entram primeiro porque fecham as principais lacunas para o estudo do BACEN e permitem interpretar o efeito conjunto de política fiscal, atividade e juros:
+
+1. **Resultado primário e nominal do setor público consolidado**, em valor e percentual do PIB — BCB/SGS.
+2. **Dívida bruta do governo geral**, em percentual do PIB — BCB/SGS ou Tesouro Transparente.
+3. **Dívida líquida do setor público**, em percentual do PIB — BCB/SGS.
+4. **Taxa de desemprego da PNAD Contínua** — IBGE/SIDRA.
+5. **Rendimento real habitual do trabalho** — IBGE/SIDRA.
+6. **Saldo total de crédito**, em valor e percentual do PIB — BCB/SGS.
+7. **Inadimplência de crédito** de pessoas físicas e jurídicas — BCB/SGS.
+8. **Concessões de crédito** para pessoas físicas e jurídicas — BCB/SGS.
+
+Essas séries devem alimentar cards sobre resultado nominal e primário, sustentabilidade da dívida, hiato do produto, mercado de trabalho, canal de crédito e mecanismo de transmissão da SELIC.
+
+### Prioridade 2 — Atividade e inflação por composição
+
+Depois do núcleo estrutural, adicionar os indicadores que explicam de onde vêm o crescimento e a inflação:
+
+9. **Produção industrial** — IBGE/SIDRA, preferencialmente com série geral dessazonalizada.
+10. **Volume de serviços** — IBGE/SIDRA.
+11. **Volume de vendas do comércio varejista** — IBGE/SIDRA.
+12. **PIB nominal** e **deflator implícito** — IBGE/SIDRA ou BCB/SGS.
+13. **Componentes do PIB**: consumo das famílias, consumo do governo, investimento e setor externo — IBGE/SIDRA.
+14. **IPCA-15** — IBGE/SIDRA, como indicador antecedente do IPCA cheio.
+15. **Núcleos de inflação** — BCB/SGS, quando houver séries oficiais estáveis.
+16. **Índice de difusão do IPCA** — BCB/SGS, quando houver série oficial estável.
+17. **Inflação de preços administrados** — BCB/SGS ou decomposição oficial do IPCA.
+
+O dashboard deve diferenciar crescimento mensal, interanual e acumulado em 12 meses, além de distinguir séries em nível, variação e índice dessazonalizado.
+
+### Prioridade 3 — Mercado de crédito e curva de juros
+
+Com a base macroeconômica consolidada, adicionar os preços financeiros que conectam as expectativas às decisões de investimento:
+
+18. **Taxas de juros de crédito** para pessoas físicas e jurídicas — BCB/SGS.
+19. **Curva de juros futuros/DI** — B3 ou fonte pública estável a definir.
+20. **Taxas de juros reais** — BCB, ANBIMA ou fonte pública estável a definir.
+21. **Prêmio de risco soberano** — EMBI, CDS ou fonte pública estável a definir.
+
+As taxas futuras permanecem condicionadas à validação de uma fonte com histórico, unidade e disponibilidade consistentes. `yfinance` não deve ser tratado como fonte oficial para essa camada.
+
+### Prioridade 4 — Cenário internacional e commodities
+
+Por último, ampliar os indicadores externos já existentes para explicar choques globais sobre câmbio, inflação, juros e bolsa brasileira:
+
+22. **Fed Funds** — Federal Reserve/FRED.
+23. **CPI dos Estados Unidos** — BLS/FRED.
+24. **Treasury de 10 anos** — Federal Reserve/FRED.
+25. **DXY**, índice do dólar — fonte pública internacional estável a definir.
+26. **VIX**, índice de volatilidade — CBOE/FRED ou fonte pública estável.
+27. **Preço do petróleo** — EIA/FRED ou fonte pública estável.
+28. **Preço do minério de ferro** — fonte pública estável a definir.
+29. **Índice ou preços de commodities agrícolas** — fonte pública estável a definir.
+
+### Entregáveis técnicos da Fase 3C
+
+- Criar um adaptador SIDRA para PNAD, indústria, comércio, serviços e contas nacionais.
+- Adicionar cada indicador ao `src/catalogo.py` com fonte, frequência, unidade, periodicidade de atualização e card de contexto.
+- Separar corretamente estoques, fluxos, taxas, índices e razões sobre o PIB.
+- Implementar variação mensal, variação interanual, acumulado em 12 meses e percentual do PIB quando aplicável.
+- Registrar a data de referência e a data de atualização, preservando o fallback do SQLite.
+- Adicionar testes de parsing, cache, unidades e integridade do catálogo para cada nova fonte.
+- Expandir correlações e regressões para fiscal × juros, trabalho × inflação, crédito × atividade e cenário externo × câmbio.
+
 ## Fase 4 — Produto: UX e diferenciação
 
 **Meta:** sair de "ferramenta pessoal de estudo" para algo que outra pessoa pagaria por usar.
@@ -159,5 +228,6 @@ Esta expansão complementa a Fase 3 sem reabrir a Fase 2. O objetivo é permitir
 | 2 | 10+ séries no ar, você consegue "estudar" usando o próprio dashboard |
 | 3 | Consegue responder questões de estatística/econometria do edital usando dados reais do projeto |
 | 3B | 4+ indicadores externos integrados, cacheados e usados em uma correlação Brasil × exterior |
+| 3C | 20+ novos indicadores priorizados, com fontes documentadas, métricas macroeconômicas e testes de integração |
 | 4 | Alguém fora de você usaria sem precisar de explicação |
 | 5 | Primeira venda ou primeira assinatura paga |

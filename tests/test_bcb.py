@@ -7,6 +7,7 @@ from src.metrics import (
     acumulada_12m,
     formatar_periodo,
     ultima_do_mes,
+    variacao_interanual,
 )
 
 PAYLOAD = [
@@ -104,3 +105,37 @@ def test_formatar_periodo():
     assert formatar_periodo(pd.Timestamp("2026-07-01"), "M") == "Jul/2026"
     assert formatar_periodo(pd.Timestamp("2026-07-01"), "T") == "3º trimestre de 2026"
     assert formatar_periodo(pd.Timestamp("2026-01-01"), "A") == "2026"
+
+
+def test_variacao_interanual_mensal():
+    idx = pd.date_range("2023-01-01", periods=14, freq="MS")
+    s = pd.Series(range(100, 114), index=idx, dtype=float)
+    yoy = variacao_interanual(s, "M")
+    assert yoy.iloc[:12].isna().all()
+    assert yoy.iloc[12] == pytest.approx(12.0)
+    assert yoy.iloc[13] == pytest.approx((113 - 101) / 101 * 100)
+
+
+def test_variacao_interanual_trimestral():
+    s = pd.Series([100.0, 110.0, 120.0, 130.0, 140.0])
+    yoy = variacao_interanual(s, "T")
+    assert yoy.iloc[:4].isna().all()
+    assert yoy.iloc[4] == pytest.approx(40.0)
+
+
+def test_variacao_interanual_anual():
+    s = pd.Series([100.0, 110.0, 120.0])
+    yoy = variacao_interanual(s, "A")
+    assert pd.isna(yoy.iloc[0])
+    assert yoy.iloc[1] == pytest.approx(10.0)
+    assert yoy.iloc[2] == pytest.approx((120 - 110) / 110 * 100)
+
+
+def test_variacao_interanual_com_nan():
+    idx = pd.date_range("2023-01-01", periods=15, freq="MS")
+    s = pd.Series([float(i) for i in range(100, 115)], index=idx)
+    s.iloc[13] = float("nan")
+    yoy = variacao_interanual(s, "M")
+    assert yoy.iloc[12] == pytest.approx(12.0)
+    assert pd.isna(yoy.iloc[13])
+    assert yoy.iloc[14] == pytest.approx((114 - 102) / 102 * 100)

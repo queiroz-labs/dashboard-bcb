@@ -13,7 +13,13 @@ from src.econometria import (
 )
 from src.externos import cruzamento_brl_jpy, fetch_ticker
 from src.focus import fetch_focus
-from src.metrics import acumulada_12m, formatar_periodo, ultima_do_mes
+from src.metrics import (
+    acumulada_12m,
+    formatar_periodo,
+    ultima_do_mes,
+    variacao_interanual,
+)
+from src.sidra import fetch_sidra
 from src.storage import ler_meta, load_series, salvar_meta, save_series
 
 st.set_page_config(page_title="Dashboard BCB", layout="wide")
@@ -239,6 +245,14 @@ def _baixar_serie(serie: Serie) -> pd.DataFrame:
             data_inicial=inicio,
             data_final=hoje.strftime("%d/%m/%Y"),
         )
+    elif serie.fonte == "sidra":
+        df = fetch_sidra(
+            serie.agregado,
+            serie.variavel,
+            name=serie.slug,
+            classificacoes=serie.classificacoes,
+            frequencia=serie.frequencia,
+        )
     elif serie.fonte == "sgs":
         df = fetch_sgs(serie.codigo_sgs, name=serie.slug)
     else:
@@ -317,6 +331,11 @@ def pagina_explorador() -> None:
     ):
         dados = dados.copy()
         dados[col] = acumulada_12m(dados, col)
+    if not serie.acumulavel and serie.frequencia in ("M", "T", "A") and st.checkbox(
+        "Variação interanual (%)", value=False
+    ):
+        dados = dados.copy()
+        dados[col] = variacao_interanual(dados[col], serie.frequencia)
 
     corte = seletor_periodo()
     dados = dados if corte is None else dados[dados.index >= corte]
